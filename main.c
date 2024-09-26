@@ -61,6 +61,31 @@ Object* pop(VM* vm) {
     return value;
 }
 
+// create a new object to test garbage collection
+Object* newObject(VM* vm, ObjectType type) {
+    Object* object = (Object*) malloc(sizeof(Object));
+    object->type = type;
+    return object;
+}
+
+// without an interpreter, there needs to be a manual way to push objects onto the stack
+void pushInt(VM* vm, int intValue) {
+    Object* object = newObject(vm, OBJ_INT);
+    object->value = intValue;
+    push(vm, object);
+}
+
+Object* pushPair(VM* vm) {
+    Object* object = newObject(vm, OBJ_PAIR);
+    // the object head and tail are popped because of the LIFO manner of the stack
+    // instead of being two individual objects, they need to be popped to become one pair object
+    object->head = pop(vm);
+    object->tail = pop(vm);
+
+    push(vm, object);
+    return object;
+}
+
 int main(int argc, char* argv[]) {
     printf("Hello World!\n");
     return 0;
