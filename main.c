@@ -3,6 +3,7 @@
 #include <stdlib.h>
 
 #define STACK_MAX 256
+#define INITIAL_GC_THRESHOLD 8
 
 typedef enum { OBJ_INT, OBJ_PAIR } ObjectType;
 
@@ -25,8 +26,9 @@ typedef struct sObject {
 
   unsigned char marked;
 
-  // the next object in the list of all the objects
-  struct sObject* next;
+  // the next object in the list of all the objects. this allows for their to be
+  // a global list of all objects in the program
+  struct sObject *next;
 } Object;
 
 // a virtual machine to have a stack that stores the variables in the current
@@ -36,13 +38,20 @@ typedef struct {
   Object *stack[STACK_MAX];
   int stackSize;
   // the first object in the list of all the objects
-  Object* firstObject;
+  Object *firstObject;
+
+  // the total number of allocated objects
+  int numObjects;
+
+  // the number of objects required to trigger a gc
+  int maxObjects;
 } VM;
 
 VM *newVM() {
   VM *vm = (VM *)malloc(sizeof(VM));
   vm->stackSize = 0;
   vm->firstObject = NULL;
+  vm->maxObjects = INITIAL_GC_THRESHOLD;
   return vm;
 }
 
@@ -73,6 +82,7 @@ Object *newObject(VM *vm, ObjectType type) {
   Object *object = (Object *)malloc(sizeof(Object));
   object->type = type;
   object->marked = 0;
+  vm->numObjects++;
 
   // insert the object in the list of allocated objects
   object->next = vm->firstObject;
@@ -121,6 +131,35 @@ void markAll(VM *vm) {
   for (int i; i < vm->stackSize; i++) {
     mark(vm->stack[i]);
   }
+}
+
+void sweep(VM *vm) {
+  Object **object = &vm->firstObject;
+  while (*object) {
+    if (!(*object)->marked) {
+      // if the object wasn't reached, remove it from the list and free it.
+      Object *unreached = *object;
+
+      *object = unreached->next;
+      free(unreached);
+      vm->numObjects--;
+    } else {
+      // this object was reached, so unmark it (for the next GC) and move on to
+      // the next object
+      (*object)->marked = 0;
+      object = &(*object)->next;
+    }
+  }
+}
+
+void gc(VM *vm) {
+  markAll(vm);
+  sweep(vm);
+
+  // the mulitplier lets the heap grow as the number of living objects
+  // increases. likewise, it will shrink automatically if a bunch of objects end
+  // up being freed
+  vm->maxObjects = vm->numObjects * 2;
 }
 
 int main(int argc, char *argv[]) {
