@@ -1,4 +1,8 @@
 #include <stdio.h>
+#include <stdlib.h>
+#include <assert.h>
+
+#define STACK_MAX 256
 
 typedef enum {
     OBJ_INT,
@@ -21,6 +25,41 @@ typedef struct sObject {
         };
     };
 } Object;
+
+// a virtual machine to have a stack that stores the variables in the current scope
+typedef struct {
+    // the max amount of objects that can be in the stack
+    Object* stack[STACK_MAX];
+    int stackSize;
+} VM;
+
+VM* newVM() {
+    VM* vm = (VM*) malloc(sizeof(VM));
+    vm->stackSize = 0;
+    return vm;
+}
+
+void push(VM* vm, Object* value) {
+    // stack overflow
+    assert(vm->stackSize < STACK_MAX);
+    // set the pushed object to the highest level of the stack
+    // the first push would be index 0
+    vm->stack[vm->stackSize] = value;
+    // increase the size of the stack
+    vm->stackSize++;
+}
+
+Object* pop(VM* vm) {
+    // stack underflow
+    assert(vm->stackSize > 0);
+    // decrease the size of the stack
+    vm->stackSize--;
+    // return the object
+    Object* value = vm->stack[vm->stackSize];
+    // clear the index of the returned value
+    vm->stack[vm->stackSize] = NULL;
+    return value;
+}
 
 int main(int argc, char* argv[]) {
     printf("Hello World!\n");
